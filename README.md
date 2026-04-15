@@ -1,0 +1,1 @@
+# upschool-app-hizlisanayi
