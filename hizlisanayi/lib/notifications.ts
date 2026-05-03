@@ -7,6 +7,9 @@ import { supabase } from '@/lib/supabase';
 
 // ── Register push token with Expo + Supabase ──────────────────────────────
 export async function registerPushToken(userId: string): Promise<void> {
+  // Skip in dev bypass mode — "dev-user" is not a real UUID
+  if (!userId || userId === 'dev-user') return;
+
   // Only works on physical devices
   if (!Device.isDevice) {
     console.log('[Notifications] Skipping — not a physical device');
@@ -57,6 +60,9 @@ export async function registerPushToken(userId: string): Promise<void> {
 
 // ── Delete all push tokens for user ──────────────────────────────────────
 export async function deletePushToken(userId: string): Promise<void> {
+  // Skip in dev bypass mode — "dev-user" is not a real UUID
+  if (!userId || userId === 'dev-user') return;
+
   const { error } = await supabase
     .from('push_tokens')
     .delete()
