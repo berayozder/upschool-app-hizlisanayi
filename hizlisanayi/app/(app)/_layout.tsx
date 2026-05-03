@@ -1,9 +1,7 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
-
-const ORANGE = '#F97316';
-const GRAY = '#9CA3AF';
+import { colors } from '@/constants/theme';
 
 type MCIcon = keyof typeof MaterialCommunityIcons.glyphMap;
 
@@ -22,11 +20,11 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: ORANGE,
-        tabBarInactiveTintColor: GRAY,
+        tabBarActiveTintColor: colors.primary,    // #1D4ED8
+        tabBarInactiveTintColor: '#94A3B8',
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#F3F4F6',
+          backgroundColor: colors.surface,
+          borderTopColor: '#E2E8F0',
           borderTopWidth: 1,
         },
         tabBarLabelStyle: {
@@ -37,11 +35,12 @@ export default function AppLayout() {
         headerShown: false,
       }}
     >
-      {/* ─── Feed Tab ─── */}
+      {/* ─── İlanlar / Fırsatlar Tab ─── */}
       <Tabs.Screen
         name="feed/index"
         options={{
-          title: isProvider ? 'Fırsatlar' : 'İlanlarım',
+          // ui-choices.md: "İlanlar" (Seeker) and "Fırsatlar" (Provider)
+          title: isProvider ? 'Fırsatlar' : 'İlanlar',
           tabBarIcon: ({ color }) => (
             <TabIcon
               name={isProvider ? 'briefcase-search' : 'home'}
@@ -51,7 +50,7 @@ export default function AppLayout() {
         }}
       />
 
-      {/* ─── Post Tab ─── */}
+      {/* ─── İlan Ver Tab (seeker only) ─── */}
       <Tabs.Screen
         name="post/index"
         options={
@@ -66,7 +65,7 @@ export default function AppLayout() {
         }
       />
 
-      {/* ─── Profile Tab ─── */}
+      {/* ─── Profil Tab ─── */}
       <Tabs.Screen
         name="profile/index"
         options={{

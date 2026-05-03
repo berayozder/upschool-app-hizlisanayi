@@ -12,6 +12,8 @@ import {
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { colors, radius, size, spacing, typography } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -40,8 +42,39 @@ function isValidPhone(formatted: string): boolean {
   return /^\+90[5][0-9]{9}$/.test(e164);
 }
 
+function mapOtpError(err: unknown): string {
+  const rawMessage =
+    typeof err === 'object' && err !== null && 'message' in err
+      ? String((err as { message?: string }).message ?? '')
+      : '';
+
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes('network') || message.includes('fetch')) {
+    return 'Internet baglantisi yok.';
+  }
+  if (message.includes('rate limit') || message.includes('too many')) {
+    return 'Cok fazla deneme yapildi. Biraz sonra tekrar deneyin.';
+  }
+  if (
+    message.includes('phone provider') ||
+    message.includes('sms provider') ||
+    message.includes('otp is disabled') ||
+    message.includes('unsupported phone provider')
+  ) {
+    return 'SMS servisi su an aktif degil. Supabase Phone Auth ayarlarini kontrol edin.';
+  }
+
+  if (rawMessage) {
+    return `SMS gonderilemedi: ${rawMessage}`;
+  }
+
+  return 'SMS gonderilemedi. Tekrar dene.';
+}
+
 export default function PhoneScreen() {
   const router = useRouter();
+  const { enableDevBypass } = useAuth();
   const [display, setDisplay] = useState('+90 ');
   const [loading, setLoading] = useState(false);
 
@@ -60,12 +93,8 @@ export default function PhoneScreen() {
       const { error } = await supabase.auth.signInWithOtp({ phone });
       if (error) throw error;
       router.push({ pathname: '/(auth)/otp', params: { phone } });
-    } catch (err: any) {
-      const msg =
-        err?.message?.toLowerCase().includes('network') || err?.message?.toLowerCase().includes('fetch')
-          ? 'İnternet bağlantısı yok.'
-          : 'SMS gönderilemedi. Tekrar dene.';
-      Alert.alert('Hata', msg);
+    } catch (err: unknown) {
+      Alert.alert('Hata', mapOtpError(err));
     } finally {
       setLoading(false);
     }
@@ -94,7 +123,7 @@ export default function PhoneScreen() {
             onChangeText={handleChange}
             keyboardType="phone-pad"
             placeholder="+90 5XX XXX XX XX"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.placeholder}
             autoFocus
           />
         </View>
@@ -107,7 +136,7 @@ export default function PhoneScreen() {
           activeOpacity={0.8}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.surface} />
           ) : (
             <Text style={styles.buttonText}>Kod Gönder</Text>
           )}
@@ -117,38 +146,82 @@ export default function PhoneScreen() {
         <Text style={styles.legal}>
           Devam ederek Gizlilik Politikamızı kabul etmiş olursunuz.
         </Text>
+
+        {__DEV__ && (
+          <View style={styles.devSection}>
+            <Text style={styles.devLabel}>Gelistirme Modu (OTP olmadan giris)</Text>
+            <TouchableOpacity
+              style={[styles.devButton, styles.devButtonSeeker]}
+              onPress={() => enableDevBypass('seeker')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.devButtonText}>Dev ile Seeker Girisi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.devButton, styles.devButtonProvider]}
+              onPress={() => enableDevBypass('provider')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.devButtonText}>Dev ile Provider Girisi</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  inner: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
-  brandContainer: { alignItems: 'center', marginBottom: 48 },
-  brandTitle: { fontSize: 32, fontWeight: '700', color: '#F97316' },
-  brandSubtitle: { fontSize: 15, color: '#6B7280', marginTop: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
-  inputContainer: { marginBottom: 24 },
+  container: { flex: 1, backgroundColor: colors.background },
+  inner: { flex: 1, paddingHorizontal: spacing.md, justifyContent: 'center' },
+  brandContainer: { alignItems: 'center', marginBottom: spacing.xxxl },
+  brandTitle: { ...typography.pageTitle, color: colors.textPrimary },
+  brandSubtitle: { ...typography.secondary, color: colors.textSecondary, marginTop: 4 },
+  label: { ...typography.secondary, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.xs },
+  inputContainer: { marginBottom: spacing.md },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    height: 52,
-    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    height: size.inputHeight,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
     fontSize: 18,
-    color: '#111827',
+    color: colors.textPrimary,
     letterSpacing: 1,
   },
   button: {
-    backgroundColor: '#F97316',
-    height: 52,
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    height: size.buttonHeight,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.md,
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  legal: { textAlign: 'center', fontSize: 12, color: '#9CA3AF', lineHeight: 18 },
+  buttonText: { ...typography.button, color: colors.surface },
+  legal: { textAlign: 'center', ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
+  devSection: { marginTop: spacing.lg, gap: spacing.xs },
+  devLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  devButton: {
+    height: size.buttonHeightSmall,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  devButtonSeeker: {
+    backgroundColor: colors.textPrimary,
+  },
+  devButtonProvider: {
+    backgroundColor: colors.warning,
+  },
+  devButtonText: {
+    ...typography.secondary,
+    color: colors.surface,
+    fontWeight: '600',
+  },
 });

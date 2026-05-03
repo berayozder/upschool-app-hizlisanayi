@@ -1,25 +1,28 @@
 import { useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-
-SplashScreen.preventAutoHideAsync().catch(() => {});
+import { ToastProvider } from '@/components/ui/Toast';
+import { setupNotificationListeners } from '@/lib/notifications';
 
 const queryClient = new QueryClient();
 
 function RootNavigator() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, devBypassActive } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
+  // ── Auth routing guard ──
   useEffect(() => {
     if (loading) return;
 
-    SplashScreen.hideAsync().catch(() => {});
-
     const inAuthGroup = segments[0] === '(auth)';
-    const inAppGroup = segments[0] === '(app)';
+    if (devBypassActive) {
+      if (!inAuthGroup) return;
+      router.replace('/(app)/feed');
+      return;
+    }
 
     if (!session) {
       // Not logged in → go to phone screen
@@ -35,19 +38,26 @@ function RootNavigator() {
         router.replace('/(app)/feed');
       }
     }
-  }, [session, profile, loading, segments]);
+  }, [session, profile, loading, segments, devBypassActive]);
 
-  if (loading) return null;
+  // ── Notification deep-link listeners ──
+  useEffect(() => {
+    const cleanup = setupNotificationListeners(router);
+    return cleanup;
+  }, [router]);
 
   return <Slot />;
 }
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RootNavigator />
+          <ToastProvider />
+        </AuthProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

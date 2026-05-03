@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { ActiveRole } from '@/types/database';
+import { colors, radius, spacing, typography } from '@/constants/theme';
 
 interface RoleCard {
   role: ActiveRole;
@@ -77,9 +78,9 @@ export default function RoleSelectScreen() {
               activeOpacity={0.85}
             >
               {isLoading ? (
-                <ActivityIndicator size="large" color="#F97316" />
+                <ActivityIndicator size="large" color={colors.primary} />
               ) : (
-                <MaterialCommunityIcons name={icon} size={40} color="#F97316" />
+                <MaterialCommunityIcons name={icon} size={40} color={colors.primary} />
               )}
               <Text style={styles.cardTitle}>{title}</Text>
               <Text style={styles.cardSubtitle}>{subtitle}</Text>
@@ -94,36 +95,35 @@ export default function RoleSelectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 24,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
     justifyContent: 'center',
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#111827',
+    ...typography.pageTitle,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    ...typography.secondary,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.xxl,
   },
-  cards: { gap: 16 },
+  cards: { gap: spacing.md },
   card: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    padding: 28,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     alignItems: 'center',
     height: 180,
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FAFAFA',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
   },
   cardDisabled: { opacity: 0.6 },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  cardSubtitle: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
+  cardTitle: { ...typography.sectionTitle, color: colors.textPrimary },
+  cardSubtitle: { ...typography.caption, color: colors.textSecondary, textAlign: 'center' },
 });

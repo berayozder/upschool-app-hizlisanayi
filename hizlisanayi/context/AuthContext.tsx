@@ -7,16 +7,21 @@ interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  devBypassActive: boolean;
   signOut: () => Promise<void>;
   switchRole: (role: ActiveRole) => Promise<void>;
+  enableDevBypass: (role: ActiveRole) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const PROFILE_FETCH_TIMEOUT_MS = 6000;
+const AUTH_INIT_TIMEOUT_MS = 8000;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [devBypassActive, setDevBypassActive] = useState(false);
 
   async function fetchProfile(userId: string) {
     try {
@@ -31,8 +36,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function fetchProfileWithTimeout(userId: string) {
+    await Promise.race([
+      fetchProfile(userId),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, PROFILE_FETCH_TIMEOUT_MS);
+      }),
+    ]);
+  }
+
   useEffect(() => {
     let mounted = true;
+    const authInitWatchdog = setTimeout(() => {
+      if (mounted) {
+        setLoading(false);
+      }
+    }, AUTH_INIT_TIMEOUT_MS);
 
     async function init() {
       try {
@@ -40,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
         setSession(session);
         if (session) {
-          await fetchProfile(session.user.id);
+          await fetchProfileWithTimeout(session.user.id);
         }
       } catch (e) {
         console.warn('Auth init error:', e);
@@ -55,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (_event, session) => {
         setSession(session);
         if (session) {
-          await fetchProfile(session.user.id);
+          await fetchProfileWithTimeout(session.user.id);
         } else {
           setProfile(null);
         }
@@ -64,17 +83,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(authInitWatchdog);
       subscription.unsubscribe();
     };
   }, []);
 
   async function signOut() {
-    await supabase.auth.signOut();
+    if (session) {
+      await supabase.auth.signOut();
+    }
     setSession(null);
     setProfile(null);
+    setDevBypassActive(false);
   }
 
   async function switchRole(role: ActiveRole) {
+    if (!session && devBypassActive) {
+      setProfile((prev) => (prev ? { ...prev, active_role: role } : prev));
+      return;
+    }
     if (!session) return;
     await supabase
       .from('profiles')
@@ -83,8 +110,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile((prev) => (prev ? { ...prev, active_role: role } : prev));
   }
 
+  function enableDevBypass(role: ActiveRole) {
+    if (!__DEV__) return;
+
+    const now = new Date().toISOString();
+    setSession(null);
+    setProfile({
+      id: 'dev-user',
+      phone: '+905000000000',
+      full_name: 'Dev User',
+      active_role: role,
+      created_at: now,
+      updated_at: now,
+    });
+    setDevBypassActive(true);
+    setLoading(false);
+  }
+
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signOut, switchRole }}>
+    <AuthContext.Provider
+      value={{ session, profile, loading, devBypassActive, signOut, switchRole, enableDevBypass }}
+    >
       {children}
     </AuthContext.Provider>
   );

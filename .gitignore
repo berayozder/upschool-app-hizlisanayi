@@ -1,0 +1,24 @@
+# Environment secrets — never commit
+.env
+.env.*
+*.env.local
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Backend secrets
+**/secrets/
+**/*.secret.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Compiled outputs / build artifacts
+dist/
+build/
+*.egg-info/

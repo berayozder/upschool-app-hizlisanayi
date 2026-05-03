@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import OTPTextInput from 'react-native-otp-textinput';
 import { supabase } from '@/lib/supabase';
+import { colors, radius, size, spacing, typography } from '@/constants/theme';
 
 function maskPhone(phone: string): string {
   // +905xxxxxxxxx → +90 5XX XXX ** **
@@ -59,7 +60,7 @@ export default function OtpScreen() {
         .from('profiles')
         .select('id')
         .eq('id', data.user!.id)
-        .single();
+        .maybeSingle();
 
       if (!profile) {
         router.replace('/(auth)/role-select');
@@ -93,8 +94,8 @@ export default function OtpScreen() {
         <OTPTextInput
           handleTextChange={handleVerify}
           inputCount={6}
-          tintColor="#F97316"
-          offTintColor="#E5E7EB"
+          tintColor={colors.primary}
+          offTintColor={colors.border}
           textInputStyle={styles.otpBox}
           editable={!loading}
         />
@@ -118,18 +119,20 @@ export default function OtpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 24, paddingTop: 40 },
-  subtitle: { fontSize: 15, color: '#6B7280', marginBottom: 32, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, paddingTop: spacing.xxl },
+  subtitle: { ...typography.secondary, color: colors.textSecondary, marginBottom: spacing.xl, textAlign: 'center' },
   otpBox: {
-    borderWidth: 1.5,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderRadius: radius.md,
     width: 44,
-    height: 52,
+    height: size.inputHeight,
     fontSize: 22,
     fontWeight: '700',
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
   } as any,
-  loadingText: { textAlign: 'center', color: '#9CA3AF', marginTop: 16 },
-  resendContainer: { marginTop: 32, alignItems: 'center' },
-  countdownText: { fontSize: 14, color: '#9CA3AF' },
-  resendButton: { fontSize: 14, color: '#F97316', fontWeight: '600' },
+  loadingText: { textAlign: 'center', color: colors.textSecondary, marginTop: spacing.md },
+  resendContainer: { marginTop: spacing.xl, alignItems: 'center' },
+  countdownText: { ...typography.secondary, color: colors.textSecondary },
+  resendButton: { ...typography.secondary, color: colors.primary, fontWeight: '600' },
 });
