@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Button from '@/components/ui/Button';
 import CategoryPicker from '@/components/ui/CategoryPicker';
 import LocationPicker from '@/components/ui/LocationPicker';
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { colors, radius, size, spacing, typography } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickAndCompress } from '@/lib/imageCompressor';
 import { getCategoryBySlug } from '@/constants/categories';
@@ -25,10 +25,11 @@ import { useAuth } from '@/context/AuthContext';
 
 const MAX_PHOTOS = 3;
 const MAX_DESCRIPTION = 500;
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
 
 export default function PostScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { postJob, isPosting } = usePostJob();
   const insets = useSafeAreaInsets();
 
@@ -37,13 +38,19 @@ export default function PostScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
   const [description, setDescription] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
 
   const selectedPhotoUris = useMemo(
     () => photos.filter((uri): uri is string => !!uri),
     [photos],
   );
 
-  const isSubmitDisabled = selectedPhotoUris.length === 0 || !categorySlug || !city || isPosting;
+  const isSubmitDisabled =
+    selectedPhotoUris.length === 0 ||
+    !categorySlug ||
+    !city ||
+    isPosting ||
+    isRefining;
 
   async function onPickPhoto(index: number) {
     const uri = await pickAndCompress();
@@ -61,6 +68,52 @@ export default function PostScreen() {
       next[index] = null;
       return next;
     });
+  }
+
+  async function onRefineWithAI() {
+    const trimmedDesc = description.trim();
+    if (!trimmedDesc) {
+      showToast('Yapay zekanın düzenlemesi için önce bir açıklama yazmalısın.', 'info');
+      return;
+    }
+
+    if (!API_BASE_URL || !session?.access_token) {
+      showToast('Bağlantı kurulamadı. Lütfen oturumunuzu kontrol edin.', 'error');
+      return;
+    }
+
+    setIsRefining(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/jobs/refine`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ description: trimmedDesc }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Yapay zeka yanıt vermedi.');
+      }
+
+      const result = await response.json();
+
+      if (result.refined_description) {
+        setDescription(result.refined_description);
+      }
+      if (result.suggested_category) {
+        setCategorySlug(result.suggested_category);
+      }
+
+      showToast('Yapay zeka ilanınızı düzenledi!', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Yapay zeka işlemi başarısız.';
+      showToast(msg, 'error');
+    } finally {
+      setIsRefining(false);
+    }
   }
 
   async function onSubmit() {
@@ -146,6 +199,24 @@ export default function PostScreen() {
           />
           <Text style={styles.counter}>{description.length}/{MAX_DESCRIPTION}</Text>
         </View>
+
+        <Pressable
+          style={[
+            styles.aiButton,
+            (!description.trim() || isRefining || isPosting) && styles.aiButtonDisabled,
+          ]}
+          onPress={onRefineWithAI}
+          disabled={!description.trim() || isRefining || isPosting}
+        >
+          {isRefining ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 6 }} />
+          ) : (
+            <MaterialCommunityIcons name="auto-fix" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+          )}
+          <Text style={styles.aiButtonText}>
+            {isRefining ? 'Yapay Zeka Düzenliyor...' : 'Yapay Zeka ile İlanı Düzenle 🪄'}
+          </Text>
+        </Pressable>
 
         <Text style={styles.kvkk}>
           Onayli firmalar ilaninizi ve telefon numaranizi gorebilir.
@@ -251,5 +322,25 @@ const styles = StyleSheet.create({
     ...typography.secondary,
     color: colors.surface,
     fontWeight: '600',
+  },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: 'rgba(29, 78, 216, 0.15)',
+    borderRadius: radius.md,
+    height: size.inputHeight,
+    marginTop: spacing.xs,
+  },
+  aiButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+  },
+  aiButtonText: {
+    ...typography.button,
+    color: colors.primary,
   },
 });

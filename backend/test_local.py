@@ -40,8 +40,10 @@ def h(title: str):
 h("SETUP — Creating test user")
 admin = create_client(SUPABASE_URL, SERVICE_KEY)
 
-TEST_PHONE = "+905550000099"
-TEST_EMAIL = "test-hizlisanayi@example.com"
+import time
+timestamp = int(time.time()) % 100000
+TEST_PHONE = f"+9055500{timestamp:05d}"
+TEST_EMAIL = f"test-hizlisanayi-{timestamp}@example.com"
 
 # Create test user
 try:
@@ -109,9 +111,11 @@ r = requests.get(f"{BASE_URL}/providers/me", headers=HEADERS)
 # Supabase DB trigger may auto-create a provider_profiles row; accept 404 or 200
 check("GET /providers/me (before register) → not 500", r.status_code in (200, 404), f"got {r.status_code}")
 
+import random
+random_vergi_no = "".join(str(random.randint(0, 9)) for _ in range(10))
 payload = {
     "company_name": "Test Makina Sanayi",
-    "vergi_no": "1234567890",
+    "vergi_no": random_vergi_no,
     "categories": ["cnc", "laser"],
     "city": "Kocaeli",
     "district": "Gebze",
@@ -154,6 +158,17 @@ h("TEST 5 — Job creation (seeker flow)")
 r = requests.get(f"{BASE_URL}/jobs/mine", headers=HEADERS)
 check("GET /jobs/mine → 200", r.status_code == 200)
 check("Mine returns list", isinstance(r.json(), list))
+
+# Test Job Refine (AI)
+h("TEST 5.1 — Job Refinement (AI)")
+refine_payload = {"description": "vinç lazım makina taşınacak acil"}
+r_refine = requests.post(f"{BASE_URL}/jobs/refine", json=refine_payload, headers=HEADERS)
+check("POST /jobs/refine → 200", r_refine.status_code == 200, r_refine.text[:120])
+if r_refine.status_code == 200:
+    refine_json = r_refine.json()
+    check("Suggests correct category 'crane'", refine_json.get("suggested_category") == "crane", f"got {refine_json.get('suggested_category')}")
+    check("Suggests title", "refined_title" in refine_json)
+    check("Suggests description", "refined_description" in refine_json)
 
 job_payload = {
     "category_slug": "cnc",

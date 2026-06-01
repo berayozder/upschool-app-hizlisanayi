@@ -63,10 +63,10 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### 2\. Mobile Setup
+### 2\. Frontend Setup
 
 ```bash
-cd mobile
+cd frontend
 npm install
 npx expo start
 ```

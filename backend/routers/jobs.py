@@ -1,16 +1,25 @@
 from datetime import datetime, timezone
+import json
+import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
+import httpx
 from pydantic import BaseModel
 
 from core.auth import CurrentUser
+from core.config import settings
 from core.supabase_client import supabase_admin
 
 router = APIRouter()
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────────
+
+class JobRefineRequest(BaseModel):
+    description: str
+
 
 class JobCreateRequest(BaseModel):
     category_slug: str
@@ -26,6 +35,155 @@ class JobStatusUpdate(BaseModel):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+@router.post("/refine")
+async def refine_job_description(
+    body: JobRefineRequest,
+    user_id: str = CurrentUser,
+) -> dict:
+    """
+    Refines raw description using Gemini LLM.
+    Suggests title, category slug, and structured description.
+    """
+    raw_desc = body.description.strip()
+    if not raw_desc:
+        raise HTTPException(status_code=400, detail="Açıklama boş olamaz.")
+
+    # List of valid categories for fallback and validation
+    categories = [
+        {"slug": "cnc", "label": "Talaşlı İmalat (CNC)"},
+        {"slug": "laser", "label": "Lazer Kesim"},
+        {"slug": "sheet", "label": "Sac İşleme"},
+        {"slug": "casting", "label": "Döküm & Kalıp"},
+        {"slug": "welding", "label": "Kaynak & Metal İşleri"},
+        {"slug": "crane", "label": "Vinç Kiralama"},
+        {"slug": "forklift", "label": "Forklift & İstif"},
+        {"slug": "transport", "label": "Taşıma & Nakliye"},
+        {"slug": "tow", "label": "Araç Kurtarma (Çekici)"},
+        {"slug": "autorepair", "label": "Oto Tamir"},
+    ]
+
+    # 1. Check if GEMINI_API_KEY is available
+    if settings.GEMINI_API_KEY:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+            
+            prompt = (
+                "Sen, Türkiye'nin sanayi sektörü için geliştirilmiş 'Hızlısanayi' B2B mobil pazaryerinin akıllı ilan asistanısın. "
+                "Görevin, ilan vermek isteyen kullanıcıların yazdığı ham ve düzensiz Türkçe metinleri analiz etmek ve bunları temiz, profesyonel ve yapılandırılmış bir formata getirmektir.\n\n"
+                "Sana girdi olarak bir ham ilan açıklaması verilecek. Bu metni analiz ederek aşağıdaki 3 çıktıyı üretmelisin ve sonucu kesinlikle geçerli bir JSON formatında döndürmelisin.\n\n"
+                "Aşağıdaki 10 kategoriden en uygun olanının slug değerini seçmelisin:\n"
+                "- 'cnc': Talaşlı İmalat (CNC)\n"
+                "- 'laser': Lazer Kesim\n"
+                "- 'sheet': Sac İşleme\n"
+                "- 'casting': Döküm & Kalıp\n"
+                "- 'welding': Kaynak & Metal İşleri\n"
+                "- 'crane': Vinç Kiralama\n"
+                "- 'forklift': Forklift & İstif\n"
+                "- 'transport': Taşıma & Nakliye\n"
+                "- 'tow': Araç Kurtarma (Çekici) (Acil)\n"
+                "- 'autorepair': Oto Tamir (Acil)\n\n"
+                "Kurallar:\n"
+                "1. \"refined_title\": Maksimum 50 karakter uzunluğunda, ilan konusunu net özetleyen profesyonel bir başlık üret (Örn: \"CNC Flanş Delimi ve Tornalama\", \"Gebze Acil Çekici Hizmeti\").\n"
+                "2. \"refined_description\": Ham metindeki verileri koruyarak, maddeler halinde (bullet points) yapılandırılmış bir açıklama oluştur. Şu başlıkları (varsa) kullan:\n"
+                "   * Hizmet Türü:\n"
+                "   * Ölçüler/Özellikler:\n"
+                "   * Miktar:\n"
+                "   * Konum/Detay:\n"
+                "   * Aciliyet:\n"
+                "   Açıklama alanı maksimum 400 karakter olmalıdır.\n"
+                "3. Çıktı sadece ve sadece aşağıdaki şablona uygun saf JSON nesnesi olmalıdır. Markdown kod blokları (```json ... ```) veya ek açıklama metinleri ekleme.\n\n"
+                "JSON Şablonu:\n"
+                "{\n"
+                "  \"suggested_category\": \"kategori_slug_degeri\",\n"
+                "  \"refined_title\": \"Optimize edilmiş başlık metni\",\n"
+                "  \"refined_description\": \"Maddeler halinde düzenlenmiş ilan metni\"\n"
+                "}\n\n"
+                f"Kullanıcının ham ilan metni: \"{raw_desc}\""
+            )
+
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=10.0)
+                response.raise_for_status()
+                res_data = response.json()
+                
+                candidates = res_data.get("candidates", [])
+                if candidates:
+                    content = candidates[0].get("content", {})
+                    parts = content.get("parts", [])
+                    if parts:
+                        text_response = parts[0].get("text", "").strip()
+                        
+                        # Strip code block markdown markers if model included them
+                        if text_response.startswith("```"):
+                            match = re.search(r"\{.*\}", text_response, re.DOTALL)
+                            if match:
+                                text_response = match.group(0)
+                        
+                        ai_result = json.loads(text_response)
+                        
+                        # Validate slug
+                        suggested_slug = ai_result.get("suggested_category")
+                        valid_slugs = [c["slug"] for c in categories]
+                        if suggested_slug not in valid_slugs:
+                            ai_result["suggested_category"] = "cnc"
+                            
+                        return ai_result
+        except Exception as e:
+            logging.error(f"Gemini API Error, falling back: {e}")
+
+    # 2. Fallback Mechanism (Rule-based parsing if API fails or no API Key)
+    lower_desc = raw_desc.lower()
+    detected_category = "cnc"  # default
+    
+    keyword_map = {
+        "cnc": ["cnc", "torna", "freze", "talaşlı", "delme", "delik"],
+        "laser": ["lazer", "kesim", "plazma", "sac kesim"],
+        "sheet": ["sac", "büküm", "panç", "kenet", "metal plaka"],
+        "casting": ["döküm", "kalıp", "enjeksiyon", "pres"],
+        "welding": ["kaynak", "metal işleri", "argon", "gazaltı"],
+        "crane": ["vinç", "hiab", "sepetli", "kiralık vinç"],
+        "forklift": ["forklift", "istif", "transpalet"],
+        "transport": ["nakliye", "taşıma", "kamyon", "lojistik"],
+        "tow": ["çekici", "kurtarıcı", "yol yardım", "çekme"],
+        "autorepair": ["tamir", "sanayi", "motor", "mekanik", "oto tamir", "şanzıman"]
+    }
+    
+    for category_slug, keywords in keyword_map.items():
+        if any(kw in lower_desc for kw in keywords):
+            detected_category = category_slug
+            break
+            
+    category_label = next((c["label"] for c in categories if c["slug"] == detected_category), "Sanayi İşi")
+    refined_title = f"AI Destekli: {category_label} Talebi"
+    
+    is_urgent = detected_category in ["tow", "autorepair"] or "acil" in lower_desc
+    urgency_text = "Acil 🚨" if is_urgent else "Standart"
+    
+    refined_description = (
+        f"• Hizmet Türü: {category_label}\n"
+        f"• Detaylar: {raw_desc}\n"
+        f"• Aciliyet: {urgency_text}\n"
+        f"• [Yapay Zeka Destekli Düzenlendi]"
+    )
+    
+    return {
+        "suggested_category": detected_category,
+        "refined_title": refined_title,
+        "refined_description": refined_description
+    }
+
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_job(body: JobCreateRequest, user_id: str = CurrentUser) -> dict:
