@@ -13,6 +13,21 @@ export interface ProviderProfileInput {
   vergi_levhasi_url?: string | null;
 }
 
+async function uriToBlob(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      resolve(xhr.response);
+    };
+    xhr.onerror = function () {
+      reject(new TypeError('Network request failed'));
+    };
+    xhr.responseType = 'blob';
+    xhr.open('GET', uri, true);
+    xhr.send(null);
+  });
+}
+
 export function useProviderProfile() {
   const { session, switchRole } = useAuth();
   const queryClient = useQueryClient();
@@ -39,8 +54,7 @@ export function useProviderProfile() {
 
       const extension = uri.toLowerCase().includes('.pdf') ? 'pdf' : 'jpg';
       const path = `${userId}/levha.${extension}`;
-      const response = await fetch(uri);
-      const fileBlob = await response.blob();
+      const fileBlob = await uriToBlob(uri);
 
       const { error } = await supabase.storage
         .from('vergi-levhasi')

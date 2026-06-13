@@ -25,9 +25,23 @@ function generateJobId() {
   });
 }
 
+async function uriToBlob(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      resolve(xhr.response);
+    };
+    xhr.onerror = function () {
+      reject(new TypeError('Network request failed'));
+    };
+    xhr.responseType = 'blob';
+    xhr.open('GET', uri, true);
+    xhr.send(null);
+  });
+}
+
 async function uploadPhotoWithRetry(path: string, uri: string) {
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  const blob = await uriToBlob(uri);
 
   const first = await supabase.storage.from('job-photos').upload(path, blob, {
     contentType: 'image/jpeg',
