@@ -219,3 +219,14 @@
 - Backend URL pushed to EAS secrets as `EXPO_PUBLIC_API_URL`
 
 **Checkpoint:** Backend `GET /health` returns `{"status": "ok"}`, EAS build queued/succeeded ✅
+
+---
+
+## Phase 15 — Delivery Prep & Cleanup ✅ (2026-06-14)
+
+- T-045: Created root-level `.env.example` file summarizing both mobile and API configurations
+- T-046: Created `backend/.env.example` mapping all backend settings
+- T-047: Cleaned up unnecessary draft/reference files (`Bitirme Projesi Brief.md`, `Free-Deployment-Guide.md`, `ui-choices.md`, `MVP.md`)
+- T-048: Validated type safety of frontend (clean compilation) and ran sanity integration tests
+
+**Checkpoint:** Project clean, type-checked, and ready for final submission and deploy ✅
