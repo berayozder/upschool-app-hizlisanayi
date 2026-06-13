@@ -43,7 +43,6 @@ export default function JobDetailScreen() {
   const router = useRouter();
   const { profile, session } = useAuth();
   const { job, isLoading, closeJob, isClosing } = useJobDetail(id || '');
-  const [hasContacted, setHasContacted] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const insets = useSafeAreaInsets();
 
@@ -56,7 +55,6 @@ export default function JobDetailScreen() {
     if (!job || !userId || !job.seeker_phone) return;
     try {
       await logAndOpenWhatsApp(job, userId, supabase);
-      setHasContacted(true);
     } catch {
       Alert.alert('Hata', 'WhatsApp acilamadi.');
     }
@@ -140,13 +138,13 @@ export default function JobDetailScreen() {
           <Pressable
             style={[
               styles.whatsappBtn,
-              (hasContacted || inactiveJob) && styles.whatsappBtnDisabled,
+              inactiveJob && styles.whatsappBtnDisabled,
             ]}
             onPress={onWhatsApp}
-            disabled={hasContacted || inactiveJob}
+            disabled={inactiveJob}
           >
             <Text style={styles.whatsappBtnText}>
-              {hasContacted ? 'WhatsApp Açıldı ✓' : "WhatsApp'tan Teklif Ver 💬"}
+              {"WhatsApp'tan Teklif Ver 💬"}
             </Text>
           </Pressable>
         </View>
