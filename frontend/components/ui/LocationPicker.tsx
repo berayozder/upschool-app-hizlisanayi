@@ -7,6 +7,8 @@ import {
   Text,
   TextInput,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CITIES, getDistricts } from '@/constants/locations';
@@ -86,7 +88,10 @@ export default function LocationPicker({
         animationType="slide"
         onRequestClose={closeModal}
       >
-        <View style={styles.backdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.backdrop}
+        >
           <View style={styles.modal}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>
@@ -139,7 +144,7 @@ export default function LocationPicker({
               />
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

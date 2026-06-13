@@ -134,6 +134,7 @@ export default function PostScreen() {
       showToast('Ilaniniz yayinlandi!', 'success');
       router.replace(`/(app)/job/${newJob.id}`);
     } catch (error: unknown) {
+      console.error('[PostJobError] Failed to post job:', error);
       const msg = error instanceof Error ? error.message : 'Ilan yayinlanamadi.';
       if (msg === 'OFFLINE') {
         showToast('Internet baglantisi yok. Lutfen tekrar deneyin.', 'error');
