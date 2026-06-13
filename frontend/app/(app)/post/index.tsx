@@ -132,6 +132,11 @@ export default function PostScreen() {
       });
       await registerPushToken(profile?.id ?? '');
       showToast('Ilaniniz yayinlandi!', 'success');
+      setPhotos([null, null, null]);
+      setCategorySlug(null);
+      setCity(null);
+      setDistrict(null);
+      setDescription('');
       router.replace(`/(app)/job/${newJob.id}`);
     } catch (error: unknown) {
       console.error('[PostJobError] Failed to post job:', error);
