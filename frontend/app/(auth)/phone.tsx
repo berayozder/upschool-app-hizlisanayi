@@ -13,7 +13,6 @@ import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { colors, radius, size, spacing, typography } from '@/constants/theme';
-import { useAuth } from '@/context/AuthContext';
 
 function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, '');
@@ -74,7 +73,6 @@ function mapOtpError(err: unknown): string {
 
 export default function PhoneScreen() {
   const router = useRouter();
-  const { enableDevBypass } = useAuth();
   const [display, setDisplay] = useState('+90 ');
   const [loading, setLoading] = useState(false);
 
@@ -146,26 +144,6 @@ export default function PhoneScreen() {
         <Text style={styles.legal}>
           Devam ederek Gizlilik Politikamızı kabul etmiş olursunuz.
         </Text>
-
-        {__DEV__ && (
-          <View style={styles.devSection}>
-            <Text style={styles.devLabel}>Gelistirme Modu (OTP olmadan giris)</Text>
-            <TouchableOpacity
-              style={[styles.devButton, styles.devButtonSeeker]}
-              onPress={() => enableDevBypass('seeker')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.devButtonText}>Dev ile Seeker Girisi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.devButton, styles.devButtonProvider]}
-              onPress={() => enableDevBypass('provider')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.devButtonText}>Dev ile Provider Girisi</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -201,27 +179,4 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.5 },
   buttonText: { ...typography.button, color: colors.surface },
   legal: { textAlign: 'center', ...typography.caption, color: colors.textSecondary, lineHeight: 18 },
-  devSection: { marginTop: spacing.lg, gap: spacing.xs },
-  devLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  devButton: {
-    height: size.buttonHeightSmall,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devButtonSeeker: {
-    backgroundColor: colors.textPrimary,
-  },
-  devButtonProvider: {
-    backgroundColor: colors.warning,
-  },
-  devButtonText: {
-    ...typography.secondary,
-    color: colors.surface,
-    fontWeight: '600',
-  },
 });
