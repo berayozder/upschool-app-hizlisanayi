@@ -106,6 +106,12 @@ export default function PostScreen() {
       if (result.suggested_category) {
         setCategorySlug(result.suggested_category);
       }
+      if (result.suggested_city) {
+        setCity(result.suggested_city);
+      }
+      if (result.suggested_district) {
+        setDistrict(result.suggested_district);
+      }
 
       showToast('Yapay zeka ilanınızı düzenledi!', 'success');
     } catch (err: unknown) {

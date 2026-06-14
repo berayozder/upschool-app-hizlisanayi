@@ -43,7 +43,7 @@ async def refine_job_description(
 ) -> dict:
     """
     Refines raw description using Gemini LLM.
-    Suggests title, category slug, and structured description.
+    Suggests title, category slug, structured description, city, and district.
     """
     raw_desc = body.description.strip()
     if not raw_desc:
@@ -63,6 +63,32 @@ async def refine_job_description(
         {"slug": "autorepair", "label": "Oto Tamir"},
     ]
 
+    all_cities = [
+        "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Aksaray", "Amasya", "Ankara", "Antalya",
+        "Ardahan", "Artvin", "Aydın", "Balıkesir", "Bartın", "Batman", "Bayburt", "Bilecik",
+        "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum",
+        "Denizli", "Diyarbakır", "Düzce", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir",
+        "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Iğdır", "Isparta", "İstanbul",
+        "İzmir", "Kahramanmaraş", "Karabük", "Karaman", "Kars", "Kastamonu", "Kayseri", "Kilis",
+        "Kırıkkale", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa",
+        "Mardin", "Mersin", "Muğla", "Muş", "Nevşehir", "Niğde", "Ordu", "Osmaniye", "Rize",
+        "Sakarya", "Samsun", "Şanlıurfa", "Siirt", "Sinop", "Şırnak", "Sivas", "Tekirdağ",
+        "Tokat", "Trabzon", "Tunceli", "Uşak", "Van", "Yalova", "Yozgat", "Zonguldak"
+    ]
+
+    cities_db = {
+        "İstanbul": ["Adalar", "Arnavutköy", "Ataşehir", "Avcılar", "Bağcılar", "Bahçelievler", "Bakırköy", "Başakşehir", "Bayrampaşa", "Beşiktaş", "Beykoz", "Beylikdüzü", "Beyoğlu", "Büyükçekmece", "Çatalca", "Çekmeköy", "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", "Kadıköy", "Kağıthane", "Kartal", "Küçükçekmece", "Maltepe", "Pendik", "Sancaktepe", "Sarıyer", "Silivri", "Sultanbeyli", "Sultangazi", "Şile", "Şişli", "Tuzla", "Ümraniye", "Üsküdar", "Zeytinburnu"],
+        "Ankara": ["Altındağ", "Ayaş", "Bala", "Beypazarı", "Çamlıdere", "Çankaya", "Çubuk", "Elmadağ", "Etimesgut", "Evren", "Gölbaşı", "Güdül", "Haymana", "Kalecik", "Kazan", "Keçiören", "Kızılcahamam", "Mamak", "Nallıhan", "Polatlı", "Pursaklar", "Şereflikoçhisar", "Sincan", "Yenimahalle"],
+        "İzmir": ["Aliağa", "Balçova", "Bayındır", "Bayraklı", "Bergama", "Beydağ", "Bornova", "Buca", "Çeşme", "Çiğli", "Dikili", "Foça", "Gaziemir", "Güzelbahçe", "Karabağlar", "Karaburun", "Karşıyaka", "Kemalpaşa", "Kınık", "Kiraz", "Konak", "Menderes", "Menemen", "Narlıdere", "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla"],
+        "Bursa": ["Büyükorhan", "Gemlik", "Gürsu", "Harmancık", "İnegöl", "İznik", "Karacabey", "Keles", "Kestel", "Mudanya", "Mustafakemalpaşa", "Nilüfer", "Orhaneli", "Orhangazi", "Osmangazi", "Yenişehir", "Yıldırım"],
+        "Kocaeli": ["Başiskele", "Çayırova", "Darıca", "Derince", "Dilovası", "Gebze", "Gölcük", "İzmit", "Kandıra", "Karamürsel", "Kartepe", "Körfez"],
+        "Gaziantep": ["Araban", "İslahiye", "Karkamış", "Nizip", "Nurdağı", "Oğuzeli", "Şahinbey", "Şehitkamil", "Yavuzeli"],
+        "Konya": ["Ahırlı", "Akören", "Akşehir", "Altınekin", "Beyşehir", "Bozkır", "Cihanbeyli", "Çeltik", "Çumra", "Derbent", "Derebucak", "Doğanhisar", "Emirgazi", "Ereğli", "Güneysınır", "Hadim", "Halkapınar", "Hüyük", "Ilgın", "Kadınhanı", "Karapınar", "Karatay", "Kulu", "Meram", "Sarayönü", "Selçuklu", "Seydişehir", "Taşkent", "Tuzlukçu", "Yalıhüyük", "Yunak"],
+        "Manisa": ["Ahmetli", "Akhisar", "Alaşehir", "Demirci", "Gölmarmara", "Gördes", "Kırkağaç", "Köprübaşı", "Kula", "Salihli", "Sarıgöl", "Saruhanlı", "Selendi", "Soma", "Şehzadeler", "Turgutlu", "Yunusemre"],
+        "Denizli": ["Acıpayam", "Babadağ", "Baklan", "Bekilli", "Beyağaç", "Bozkurt", "Buldan", "Çal", "Çameli", "Çardak", "Çivril", "Güney", "Honaz", "Kale", "Merkezefendi", "Pamukkale", "Sarayköy", "Serinhisar", "Tavas"],
+        "Balıkesir": ["Altıeylül", "Ayvalık", "Balya", "Bandırma", "Bigadiç", "Burhaniye", "Dursunbey", "Edremit", "Erdek", "Gömeç", "Gönen", "Havran", "İvrindi", "Karesi", "Kepsut", "Manyas", "Marmara", "Savaştepe", "Sındırgı", "Susurluk"]
+    }
+
     # 1. Check if GEMINI_API_KEY is available
     if settings.GEMINI_API_KEY:
         try:
@@ -71,7 +97,7 @@ async def refine_job_description(
             prompt = (
                 "Sen, Türkiye'nin sanayi sektörü için geliştirilmiş 'Hızlısanayi' B2B mobil pazaryerinin akıllı ilan asistanısın. "
                 "Görevin, ilan vermek isteyen kullanıcıların yazdığı ham ve düzensiz Türkçe metinleri analiz etmek ve bunları temiz, profesyonel ve yapılandırılmış bir formata getirmektir.\n\n"
-                "Sana girdi olarak bir ham ilan açıklaması verilecek. Bu metni analiz ederek aşağıdaki 3 çıktıyı üretmelisin ve sonucu kesinlikle geçerli bir JSON formatında döndürmelisin.\n\n"
+                "Sana girdi olarak bir ham ilan açıklaması verilecek. Bu metni analiz ederek aşağıdaki çıktıyı üretmelisin ve sonucu kesinlikle geçerli bir JSON formatında döndürmelisin.\n\n"
                 "Aşağıdaki 10 kategoriden en uygun olanının slug değerini seçmelisin:\n"
                 "- 'cnc': Talaşlı İmalat (CNC)\n"
                 "- 'laser': Lazer Kesim\n"
@@ -83,6 +109,7 @@ async def refine_job_description(
                 "- 'transport': Taşıma & Nakliye\n"
                 "- 'tow': Araç Kurtarma (Çekici) (Acil)\n"
                 "- 'autorepair': Oto Tamir (Acil)\n\n"
+                "Ayrıca metin içerisinden Türkiye'nin 81 ilinden birini ve varsa o ilin ilçesini tespit etmelisin.\n\n"
                 "Kurallar:\n"
                 "1. \"refined_title\": Maksimum 50 karakter uzunluğunda, ilan konusunu net özetleyen profesyonel bir başlık üret (Örn: \"CNC Flanş Delimi ve Tornalama\", \"Gebze Acil Çekici Hizmeti\").\n"
                 "2. \"refined_description\": Ham metindeki verileri koruyarak, maddeler halinde (bullet points) yapılandırılmış bir açıklama oluştur. Şu başlıkları (varsa) kullan:\n"
@@ -92,12 +119,16 @@ async def refine_job_description(
                 "   * Konum/Detay:\n"
                 "   * Aciliyet:\n"
                 "   Açıklama alanı maksimum 400 karakter olmalıdır.\n"
-                "3. Çıktı sadece ve sadece aşağıdaki şablona uygun saf JSON nesnesi olmalıdır. Markdown kod blokları (```json ... ```) veya ek açıklama metinleri ekleme.\n\n"
+                "3. \"suggested_city\": Metinde geçen Türkiye ilini tespit et (Örn: 'Bursa', 'Kocaeli', 'İstanbul'). Bulamazsan null yap.\n"
+                "4. \"suggested_district\": Tespit edilen ilin metinde geçen ilçesini tespit et (Örn: 'Nilüfer', 'Gebze', 'Tuzla'). Bulamazsan null yap.\n"
+                "5. Çıktı sadece ve sadece aşağıdaki şablona uygun saf JSON nesnesi olmalıdır. Markdown kod blokları (```json ... ```) veya ek açıklama metinleri ekleme.\n\n"
                 "JSON Şablonu:\n"
                 "{\n"
                 "  \"suggested_category\": \"kategori_slug_degeri\",\n"
                 "  \"refined_title\": \"Optimize edilmiş başlık metni\",\n"
-                "  \"refined_description\": \"Maddeler halinde düzenlenmiş ilan metni\"\n"
+                "  \"refined_description\": \"Maddeler halinde düzenlenmiş ilan metni\",\n"
+                "  \"suggested_city\": \"İl adı veya null\",\n"
+                "  \"suggested_district\": \"İlçe adı veya null\"\n"
                 "}\n\n"
                 f"Kullanıcının ham ilan metni: \"{raw_desc}\""
             )
@@ -138,6 +169,26 @@ async def refine_job_description(
                         valid_slugs = [c["slug"] for c in categories]
                         if suggested_slug not in valid_slugs:
                             ai_result["suggested_category"] = "cnc"
+
+                        # Validate city and match casing
+                        suggested_city = ai_result.get("suggested_city")
+                        matched_city = None
+                        if suggested_city:
+                            for c in all_cities:
+                                if c.lower() == suggested_city.lower():
+                                    matched_city = c
+                                    break
+                        ai_result["suggested_city"] = matched_city
+
+                        # Validate district and match casing
+                        suggested_district = ai_result.get("suggested_district")
+                        matched_district = None
+                        if matched_city and suggested_district and matched_city in cities_db:
+                            for d in cities_db[matched_city]:
+                                if d.lower() == suggested_district.lower():
+                                    matched_district = d
+                                    break
+                        ai_result["suggested_district"] = matched_district
                             
                         return ai_result
         except Exception as e:
@@ -164,6 +215,22 @@ async def refine_job_description(
         if any(kw in lower_desc for kw in keywords):
             detected_category = category_slug
             break
+
+    # Detect city and district in fallback
+    detected_city = None
+    detected_district = None
+
+    for c in all_cities:
+        # Match city as word or substring
+        if c.lower() in lower_desc:
+            detected_city = c
+            break
+
+    if detected_city and detected_city in cities_db:
+        for d in cities_db[detected_city]:
+            if d.lower() in lower_desc:
+                detected_district = d
+                break
             
     category_label = next((c["label"] for c in categories if c["slug"] == detected_category), "Sanayi İşi")
     refined_title = f"AI Destekli: {category_label} Talebi"
@@ -181,7 +248,9 @@ async def refine_job_description(
     return {
         "suggested_category": detected_category,
         "refined_title": refined_title,
-        "refined_description": refined_description
+        "refined_description": refined_description,
+        "suggested_city": detected_city,
+        "suggested_district": detected_district
     }
 
 
